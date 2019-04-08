@@ -125,10 +125,9 @@ static void Button2_Handler(uint32_t id, uint32_t mask)
 	}
 	else{
 		flag_but2 = 1;
-		distancia = 0;
-		hour = 0;
-		minute = 0;
-		second = 0;
+		counter_total = 0;
+		rtc_set_time(RTC,HOUR,MINUTE,SECOND);
+		flag_rtt = 1;
 	}
 }
 
@@ -216,7 +215,7 @@ int main(void) {
 	BUT_init();
 	RTC_init();
 	configure_lcd();
-	distancia = 0;
+	counter_total = 0;
 	while(1) {
 		if(flag_but2){
 			if (flag_rtt){
@@ -230,6 +229,7 @@ int main(void) {
 				char b2[32];
 				sprintf(b,"V: %.2f km/h",vel_lin *3.6);
 				sprintf(b2,"D: %.2f m",distancia);
+				ili9488_draw_filled_rectangle(0, 0, ILI9488_LCD_WIDTH-1, 150);
 				font_draw_text(&calibri_36, b, 50, 50, 1);
 				font_draw_text(&calibri_36, b2, 50, 100, 1);
 				counter_temp = 0;
@@ -239,7 +239,7 @@ int main(void) {
 			if (flag_rtc){
 				rtc_get_time(RTC,&hour,&minute,&second);
 				char b3[32];
-				sprintf(b3,"%d : %d : %d",hour - HOUR,minute - MINUTE,second - SECOND);
+				sprintf(b3,"%02d : %02d : %02d",hour - HOUR,minute - MINUTE,second - SECOND);
 				font_draw_text(&calibri_36, b3, 50, 150, 1);
 				flag_rtc = 0;
 			}
