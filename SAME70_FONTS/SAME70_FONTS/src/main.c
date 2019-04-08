@@ -21,6 +21,13 @@
 #define MINUTE      18
 #define SECOND      0
 
+
+#define BUT2_PIO_ID				ID_PIOC
+#define BUT2_PIO				PIOC
+#define BUT2_PIO_IDX			31
+#define BUT2_PIO_IDX_MASK		(1 << BUT2_PIO_IDX)
+#define BUT2_DEBOUNCING_VALUE   79
+
 #define BUT3_PIO				PIOA
 #define BUT3_PIO_ID				ID_PIOA
 #define BUT3_PIO_IDX			19
@@ -32,6 +39,7 @@ struct ili9488_opt_t g_ili9488_display_opt;
 volatile uint16_t counter_total = 0;
 volatile uint16_t counter_temp = 0;
 
+volatile uint8_t flag_but2 = 0;
 volatile uint8_t flag_but3 = 0;
 volatile uint8_t flag_rtt = 1;
 volatile uint8_t flag_rtc = 1;
@@ -42,6 +50,7 @@ volatile uint32_t hour;
 volatile uint32_t minute;
 volatile uint32_t second;
 
+volatile float distancia = 0;
 
 
 void RTC_Handler(void)
@@ -71,6 +80,28 @@ void RTC_Handler(void)
 	
 }
 
+void RTC_init(){
+	/* Configura o PMC */
+	pmc_enable_periph_clk(ID_RTC);
+
+	/* Default RTC configuration, 24-hour mode */
+	rtc_set_hour_mode(RTC, 0);
+
+	/* Configura data e hora manualmente */
+	rtc_set_date(RTC, YEAR, MONTH, DAY, WEEK);
+	rtc_set_time(RTC, HOUR, MINUTE, SECOND);
+
+	/* Configure RTC interrupts */
+	NVIC_DisableIRQ(RTC_IRQn);
+	NVIC_ClearPendingIRQ(RTC_IRQn);
+	NVIC_SetPriority(RTC_IRQn, 0);
+	NVIC_EnableIRQ(RTC_IRQn);
+
+	/* Ativa interrupcao via alarme */
+	rtc_enable_interrupt(RTC,  RTC_IER_SECEN);
+
+}
+
 void RTT_Handler(void)
 {
 	uint32_t ul_status;
@@ -87,18 +118,41 @@ void RTT_Handler(void)
 	}
 }
 
+static void Button2_Handler(uint32_t id, uint32_t mask)
+{
+	if(flag_but2){
+		flag_but2 = 0;
+	}
+	else{
+		flag_but2 = 1;
+		distancia = 0;
+		hour = 0;
+		minute = 0;
+		second = 0;
+	}
+}
+
 void Button3_Handler(uint32_t id, uint32_t mask)
 {
 	counter_temp+=1;
 	counter_total+=1;
 }
 
-void BUT3_init(void){
+void BUT_init(void){
+	pmc_enable_periph_clk(BUT2_PIO_ID);
+	pio_set_input(BUT2_PIO, BUT2_PIO_IDX_MASK, PIO_PULLUP | PIO_DEBOUNCE);
+	
 	pmc_enable_periph_clk(BUT3_PIO_ID);
 	pio_set_input(BUT3_PIO, BUT3_PIO_IDX_MASK, PIO_PULLUP | PIO_DEBOUNCE);
 
+	pio_enable_interrupt(BUT2_PIO, BUT2_PIO_IDX_MASK);
 	pio_enable_interrupt(BUT3_PIO, BUT3_PIO_IDX_MASK);
+	
+	pio_handler_set(BUT2_PIO, BUT2_PIO_ID, BUT2_PIO_IDX_MASK, PIO_IT_FALL_EDGE, Button2_Handler);
 	pio_handler_set(BUT3_PIO, BUT3_PIO_ID, BUT3_PIO_IDX_MASK, PIO_IT_FALL_EDGE, Button3_Handler);
+	
+	NVIC_EnableIRQ(BUT2_PIO_ID);
+	NVIC_SetPriority(BUT2_PIO_ID, 1);
 	
 	NVIC_EnableIRQ(BUT3_PIO_ID);
 	NVIC_SetPriority(BUT3_PIO_ID, 1);
@@ -125,27 +179,6 @@ static void RTT_init(uint16_t pllPreScale, uint32_t IrqNPulses)
 	rtt_enable_interrupt(RTT, RTT_MR_ALMIEN);
 }
 
-void RTC_init(){
-	/* Configura o PMC */
-	pmc_enable_periph_clk(ID_RTC);
-
-	/* Default RTC configuration, 24-hour mode */
-	rtc_set_hour_mode(RTC, 0);
-
-	/* Configura data e hora manualmente */
-	rtc_set_date(RTC, YEAR, MONTH, DAY, WEEK);
-	rtc_set_time(RTC, HOUR, MINUTE, SECOND);
-
-	/* Configure RTC interrupts */
-	NVIC_DisableIRQ(RTC_IRQn);
-	NVIC_ClearPendingIRQ(RTC_IRQn);
-	NVIC_SetPriority(RTC_IRQn, 0);
-	NVIC_EnableIRQ(RTC_IRQn);
-
-	/* Ativa interrupcao via alarme */
-	rtc_enable_interrupt(RTC,  RTC_IER_SECEN);
-
-}
 
 void configure_lcd(void){
 	/* Initialize display parameter */
@@ -180,37 +213,37 @@ int main(void) {
 	WDT->WDT_MR = WDT_MR_WDDIS;
 	board_init();
 	sysclk_init();
-	BUT3_init();
+	BUT_init();
 	RTC_init();
 	configure_lcd();
-	
+	distancia = 0;
 	while(1) {
+		if(flag_but2){
+			if (flag_rtt){
+				uint16_t pllPreScale = (int) (((float) 32768) / 2.0);
+				uint32_t irqRTTvalue  = 8;
+				RTT_init(pllPreScale, irqRTTvalue);
+				float vel_ang = 2*M_PI*counter_temp/4;
+				float vel_lin = vel_ang * raio;
+				distancia = 2*M_PI*raio*counter_total;
+				char b[32];
+				char b2[32];
+				sprintf(b,"V: %.2f km/h",vel_lin *3.6);
+				sprintf(b2,"D: %.2f m",distancia);
+				font_draw_text(&calibri_36, b, 50, 50, 1);
+				font_draw_text(&calibri_36, b2, 50, 100, 1);
+				counter_temp = 0;
+				flag_rtt = 0;
+			}
 		
-		if (flag_rtt){
-			uint16_t pllPreScale = (int) (((float) 32768) / 2.0);
-			uint32_t irqRTTvalue  = 8;
-			RTT_init(pllPreScale, irqRTTvalue);
-			float vel_ang = 2*M_PI*counter_temp/4;
-			float vel_lin = vel_ang * raio;
-			float distancia = 2*M_PI*raio*counter_total;
-			char b[512];
-			char b2[512];
-			sprintf(b,"V: %.2f km/h",vel_lin *3.6);
-			sprintf(b2,"D: %.2f m",distancia);
-			font_draw_text(&calibri_36, b, 50, 50, 1);
-			font_draw_text(&calibri_36, b2, 50, 100, 1);
-			counter_temp = 0;
-			flag_rtt = 0;
+			if (flag_rtc){
+				rtc_get_time(RTC,&hour,&minute,&second);
+				char b3[32];
+				sprintf(b3,"%d : %d : %d",hour - HOUR,minute - MINUTE,second - SECOND);
+				font_draw_text(&calibri_36, b3, 50, 150, 1);
+				flag_rtc = 0;
+			}
 		}
-		
-		if (flag_rtc){
-			rtc_get_time(RTC,&hour,&minute,&second);
-			char b3[512];
-			sprintf(b3,"%d : %d : %d",hour - HOUR,minute - MINUTE,second - SECOND);
-			font_draw_text(&calibri_36, b3, 50, 150, 1);
-			flag_rtc = 0;
-		}
-		
 		else{
 			pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
 		}
