@@ -2,6 +2,36 @@
 # Automatically-generated file. Do not edit or delete the file
 ################################################################################
 
+src\ASF\common\services\serial\usart_serial.c
+
+src\ASF\common\services\sleepmgr\sam\sleepmgr.c
+
+src\ASF\common\services\spi\sam_usart_spi\usart_spi.c
+
+src\ASF\common\utils\stdio\read.c
+
+src\ASF\common\utils\stdio\write.c
+
+src\ASF\sam\drivers\afec\afec.c
+
+src\ASF\sam\drivers\efc\efc.c
+
+src\ASF\sam\drivers\rtc\rtc.c
+
+src\ASF\sam\drivers\rtt\rtt.c
+
+src\ASF\sam\drivers\sdramc\sdramc.c
+
+src\ASF\sam\drivers\tc\tc.c
+
+src\ASF\sam\drivers\uart\uart.c
+
+src\ASF\sam\drivers\usart\usart.c
+
+src\ASF\sam\drivers\wdt\wdt.c
+
+src\ASF\sam\services\flash_efc\flash_efc.c
+
 src\main.c
 
 src\ASF\common\services\delay\sam\cycle_counter.c
