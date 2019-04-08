@@ -51,6 +51,8 @@ volatile uint32_t minute;
 volatile uint32_t second;
 
 volatile float distancia = 0;
+volatile uint8_t contador_idle = 0;
+volatile float v_max = 0;
 
 
 void RTC_Handler(void)
@@ -126,6 +128,7 @@ static void Button2_Handler(uint32_t id, uint32_t mask)
 	else{
 		flag_but2 = 1;
 		counter_total = 0;
+		v_max = 0;
 		rtc_set_time(RTC,HOUR,MINUTE,SECOND);
 		flag_rtt = 1;
 	}
@@ -225,22 +228,49 @@ int main(void) {
 				float vel_ang = 2*M_PI*counter_temp/4;
 				float vel_lin = vel_ang * raio;
 				distancia = 2*M_PI*raio*counter_total;
-				char b[32];
-				char b2[32];
-				sprintf(b,"V: %.2f km/h",vel_lin *3.6);
-				sprintf(b2,"D: %.2f m",distancia);
-				ili9488_draw_filled_rectangle(0, 0, ILI9488_LCD_WIDTH-1, 150);
-				font_draw_text(&calibri_36, b, 50, 50, 1);
-				font_draw_text(&calibri_36, b2, 50, 100, 1);
+				if(vel_lin>v_max){
+					v_max = vel_lin;
+				}
+				if(vel_lin==0){
+					contador_idle+=1;
+				}
+				if(contador_idle!=0 && vel_lin>0){
+					contador_idle=0;
+					ili9488_set_foreground_color(COLOR_CONVERT(COLOR_WHITE));
+					ili9488_draw_filled_rectangle(0, 0, ILI9488_LCD_WIDTH-1, ILI9488_LCD_HEIGHT-1);
+				}
+				if(contador_idle<5){
+					char b[32];
+					char b2[32];
+					char b4[32];
+					sprintf(b,"V: %.2f km/h",vel_lin *3.6);
+					sprintf(b2,"D: %.2f m",distancia);
+					sprintf(b4,"V Max: %.2f km/h",v_max *3.6);
+					ili9488_set_foreground_color(COLOR_CONVERT(COLOR_WHITE));
+					ili9488_draw_filled_rectangle(0, 0, ILI9488_LCD_WIDTH-1, 200);
+					font_draw_text(&calibri_36, b, 50, 50, 1);
+					font_draw_text(&calibri_36, b2, 50, 100, 1);
+					font_draw_text(&calibri_36, b4, 25, 150, 1);
+				}
+				else{
+					ili9488_set_foreground_color(COLOR_CONVERT(COLOR_BLACK));
+					ili9488_draw_filled_rectangle(0, 0, ILI9488_LCD_WIDTH-1, ILI9488_LCD_HEIGHT-1);
+				}
 				counter_temp = 0;
 				flag_rtt = 0;
 			}
 		
 			if (flag_rtc){
-				rtc_get_time(RTC,&hour,&minute,&second);
-				char b3[32];
-				sprintf(b3,"%02d : %02d : %02d",hour - HOUR,minute - MINUTE,second - SECOND);
-				font_draw_text(&calibri_36, b3, 50, 150, 1);
+				if(contador_idle<5){
+					rtc_get_time(RTC,&hour,&minute,&second);
+					char b3[32];
+					sprintf(b3,"%02d : %02d : %02d",hour - HOUR,minute - MINUTE,second - SECOND);
+					font_draw_text(&calibri_36, b3, 50, 200, 1);
+				}
+				else{
+					ili9488_set_foreground_color(COLOR_CONVERT(COLOR_BLACK));
+					ili9488_draw_filled_rectangle(0, 0, ILI9488_LCD_WIDTH-1, ILI9488_LCD_HEIGHT-1);
+				}
 				flag_rtc = 0;
 			}
 		}
