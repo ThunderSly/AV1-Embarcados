@@ -177,38 +177,42 @@ void font_draw_text(tFont *font, const char *text, int x, int y, int spacing) {
 
 
 int main(void) {
-	board_init();
-	sysclk_init();	
-	configure_lcd();
 	WDT->WDT_MR = WDT_MR_WDDIS;
-	uint16_t pllPreScale = (int) (((float) 32768) / 2.0);
-	uint32_t irqRTTvalue  = 8;
+	board_init();
+	sysclk_init();
 	BUT3_init();
 	RTC_init();
+	configure_lcd();
 	
-
 	while(1) {
+		
 		if (flag_rtt){
+			uint16_t pllPreScale = (int) (((float) 32768) / 2.0);
+			uint32_t irqRTTvalue  = 8;
 			RTT_init(pllPreScale, irqRTTvalue);
-			float vel_ang = 2*PI*counter_temp/4;
+			float vel_ang = 2*M_PI*counter_temp/4;
 			float vel_lin = vel_ang * raio;
-			float distancia = 2*PI*raio*counter_total;
+			float distancia = 2*M_PI*raio*counter_total;
 			char b[512];
 			char b2[512];
-			sprintf(b,"Velocidade: %lf",vel_lin);
-			sprintf(b2,"Distância: %lf",distancia);
+			sprintf(b,"V: %.2f km/h",vel_lin *3.6);
+			sprintf(b2,"D: %.2f m",distancia);
 			font_draw_text(&calibri_36, b, 50, 50, 1);
 			font_draw_text(&calibri_36, b2, 50, 100, 1);
 			counter_temp = 0;
 			flag_rtt = 0;
 		}
+		
 		if (flag_rtc){
 			rtc_get_time(RTC,&hour,&minute,&second);
 			char b3[512];
-			sprintf(b3,"Horas: %d, Minutos: %d, Segundos: %d",hour,minute,second)
+			sprintf(b3,"%d : %d : %d",hour - HOUR,minute - MINUTE,second - SECOND);
 			font_draw_text(&calibri_36, b3, 50, 150, 1);
+			flag_rtc = 0;
 		}
-		pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
 		
+		else{
+			pmc_sleep(SAM_PM_SMODE_SLEEP_WFI);
+		}
 	}
 }

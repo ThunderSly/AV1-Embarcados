@@ -46,6 +46,8 @@
 #define TC_PERIPHERAL  0
 //! [tc_define_peripheral]
 
+#define CONF_BOARD_ILI9488
+
 //! [tc_define_ch1]
 /* Configure TC0 channel 1 as waveform output. */
 #define TC_CHANNEL_WAVEFORM 1
